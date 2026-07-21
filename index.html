@@ -278,6 +278,46 @@
   .text-link{ color:var(--sage-deep); font-weight:600; text-decoration:none; border-bottom:1px dotted var(--sage-deep); }
   .text-link:hover{ color:var(--ochre); border-color:var(--ochre); }
 
+  /* Dashboard header row + Get PDF CTA */
+  .dash-header-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:28px; flex-wrap:wrap; margin-bottom:8px; }
+  .dash-header-text{ flex:1; min-width:280px; }
+  .pdf-cta{
+    background:var(--bg-deep); border:1px solid var(--ochre); border-radius:10px;
+    padding:18px 22px; text-align:center; min-width:230px; max-width:280px;
+  }
+  .pdf-btn{
+    background:var(--ochre); color:#fff; border:none; border-radius:6px; padding:12px 20px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.78rem; letter-spacing:1.3px; text-transform:uppercase;
+    cursor:pointer; width:100%;
+  }
+  .pdf-btn:hover{ background:#a97531; }
+  .pdf-tagline{ color:#9FB0A5; font-size:0.78rem; line-height:1.4; margin-top:10px; }
+
+  /* PDF Summary — print-only content */
+  .pdf-summary-wrap{ background:#fff; color:#17241F; padding:6px; }
+  .pdf-header{ text-align:center; border-bottom:3px solid var(--ochre); padding-bottom:18px; margin-bottom:30px; }
+  .pdf-kicker{ font-family:'IBM Plex Mono', monospace; font-size:0.72rem; letter-spacing:3px; color:var(--sage-deep); margin-bottom:10px; }
+  .pdf-title{ font-family:'Fraunces', serif; font-weight:700; font-size:2.5rem; color:#17241F; margin-bottom:8px; }
+  .pdf-sub{ font-size:0.85rem; color:#57655D; }
+  .pdf-section{ margin-bottom:28px; }
+  .pdf-stage-tag{
+    display:inline-block; background:#17241F; color:#fff; font-family:'IBM Plex Mono', monospace;
+    font-size:0.7rem; letter-spacing:2px; padding:5px 14px; border-radius:20px; margin-bottom:14px;
+  }
+  .pdf-qa{ margin-bottom:12px; }
+  .pdf-q{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--sage-deep); margin-bottom:3px; }
+  .pdf-a{ font-size:0.98rem; color:#232F2A; line-height:1.55; }
+  .pdf-empty{ font-style:italic; color:#8A8574; font-size:0.85rem; }
+  .pdf-table{ width:100%; border-collapse:collapse; margin-top:8px; }
+  .pdf-table th{ background:#17241F; color:#fff; font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:1px; text-transform:uppercase; text-align:left; padding:9px 11px; }
+  .pdf-table td{ padding:8px 11px; border-bottom:1px solid #D9D2BE; font-size:0.87rem; }
+  .pdf-table tr:nth-child(even) td{ background:#F3EEDF; }
+  .pdf-footer{ text-align:center; font-family:'Fraunces', serif; font-style:italic; color:var(--sage-deep); margin-top:34px; font-size:0.98rem; border-top:1px solid #D9D2BE; padding-top:18px; }
+
+  @media (max-width:900px){
+    .pdf-cta{ max-width:100%; width:100%; }
+  }
+
   footer.viewfoot{ margin-top:10px; }
 
   /* ---------- MOBILE TOPBAR + DRAWER (hidden on desktop) ---------- */
@@ -379,9 +419,17 @@
 
   <!-- ============ DASHBOARD ============ -->
   <section class="view active" id="view-dashboard">
-    <div class="eyebrow">Calm Productivity System</div>
-    <h1>C.A.O.S.</h1>
-    <p class="lede">A simple system for when you have too much on your plate. Four easy steps. Work through your biggest decision one step at a time — the console keeps track as you go.</p>
+    <div class="dash-header-row">
+      <div class="dash-header-text">
+        <div class="eyebrow">Calm Productivity System</div>
+        <h1>C.A.O.S.</h1>
+        <p class="lede">A simple system for when you have too much on your plate. Four easy steps. Work through your biggest decision one step at a time — the console keeps track as you go.</p>
+      </div>
+      <div class="pdf-cta">
+        <button class="pdf-btn" onclick="generateAnswersPDF()">⬇ Get PDF</button>
+        <p class="pdf-tagline">Print your answers to get a clear picture of what's on your mind.</p>
+      </div>
+    </div>
 
     <div class="meter-panel">
       <div class="meter-readout">
@@ -631,6 +679,11 @@
     </div>
   </section>
 
+  <!-- ============ PDF SUMMARY (print-only, built dynamically from saved answers) ============ -->
+  <section class="view" id="view-pdf-summary">
+    <div class="pdf-summary-wrap" id="pdf-summary-content"></div>
+  </section>
+
 </main>
 </div>
 
@@ -676,6 +729,85 @@
   function printView(name){
     views.forEach(v=>v.classList.remove('print-active'));
     document.getElementById('view-'+name).classList.add('print-active');
+    window.print();
+  }
+
+  // ---------- GET PDF: builds a printable summary from saved answers ----------
+  const CLARIFY_LABELS = {
+    'quick-capture': "What's circling in your head right now?",
+    'c-decision': "The decision I'm avoiding",
+    'c-question': "Rewritten as a clear question",
+    'c-deadline': "Real deadline",
+    'c-consequence': "If I decide nothing by that date",
+    'c-affected': "Who else is affected",
+    'c-reversible': "Reversible or one-way",
+    'c-ownership': "Whose decision this really is",
+  };
+
+  function escapeHTML(str){
+    return String(str==null?'':str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  function renderQA(labels, fields){
+    let rows = '';
+    let any = false;
+    Object.entries(labels).forEach(([id,label])=>{
+      const val = (fields[id]||'').trim();
+      if(val){
+        any = true;
+        rows += `<div class="pdf-qa"><div class="pdf-q">${escapeHTML(label)}</div><div class="pdf-a">${escapeHTML(val)}</div></div>`;
+      }
+    });
+    return any ? rows : '<p class="pdf-empty">Nothing filled in yet for this stage.</p>';
+  }
+
+  function renderPDFTable(headers, rows){
+    if(!rows.length) return '<p class="pdf-empty">No entries yet.</p>';
+    const thead = '<tr>' + headers.map(h=>`<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
+    const tbody = rows.map(r=>'<tr>' + r.map(c=>`<td>${escapeHTML(c||'—')}</td>`).join('') + '</tr>').join('');
+    return `<table class="pdf-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+  }
+
+  function buildPDFSummaryHTML(state){
+    const today = new Date().toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
+    let html = '';
+    html += `<div class="pdf-header">
+      <div class="pdf-kicker">Calm Productivity System</div>
+      <h1 class="pdf-title">Your Decision, Clarified.</h1>
+      <p class="pdf-sub">Generated from your C.A.O.S. Console on ${today}</p>
+    </div>`;
+
+    html += `<div class="pdf-section"><div class="pdf-stage-tag">C — Clarify</div>${renderQA(CLARIFY_LABELS, state.fields)}</div>`;
+
+    const assessRows = (state.tables.assess||[])
+      .filter(r=>r.option||r.cost||r.wait||r.rev)
+      .map(r=>[r.option, r.cost, r.wait, r.rev]);
+    html += `<div class="pdf-section"><div class="pdf-stage-tag">A — Assess</div>
+      ${renderPDFTable(['Option','Real Cost','Cost of Delaying','Reversible?'], assessRows)}
+      ${ (state.fields['a-recommendation']||'').trim() ? `<div class="pdf-qa" style="margin-top:12px;"><div class="pdf-q">My honest read</div><div class="pdf-a">${escapeHTML(state.fields['a-recommendation'])}</div></div>` : '' }
+    </div>`;
+
+    const orderRows = (state.tables.order||[])
+      .filter(r=>r.task)
+      .map(r=>{
+        const score = (scoreMap[r.impact]||0) + (scoreMap[r.urgency]||0);
+        return [r.task, r.impact||'—', r.urgency||'—', String(score)];
+      })
+      .sort((a,b)=> (parseInt(b[3])||0) - (parseInt(a[3])||0));
+    html += `<div class="pdf-section"><div class="pdf-stage-tag">O — Order</div>${renderPDFTable(['Task','Impact','Urgency','Score'], orderRows)}</div>`;
+
+    const simplifyRows = (state.tables.simplify||[]).filter(r=>r.task).map(r=>[r.task, r.d||'—']);
+    html += `<div class="pdf-section"><div class="pdf-stage-tag">S — Simplify</div>${renderPDFTable(['Task','Decision'], simplifyRows)}</div>`;
+
+    html += `<div class="pdf-footer">Part of the Calm Productivity System — anshulkumar.substack.com</div>`;
+    return html;
+  }
+
+  function generateAnswersPDF(){
+    const state = collectState();
+    document.getElementById('pdf-summary-content').innerHTML = buildPDFSummaryHTML(state);
+    views.forEach(v=>v.classList.remove('print-active'));
+    document.getElementById('view-pdf-summary').classList.add('print-active');
     window.print();
   }
 
