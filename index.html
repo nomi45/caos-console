@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>C.A.O.S. — Calm Strategic Operating System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12211D;
+    --bg-deep:#0C1714;
+    --panel:#E9E3D0;
+    --panel-soft:#F3EEDF;
+    --panel-input:#FBF8EF;
+    --ink:#17241F;
+    --ink-soft:#57655D;
+    --sage:#6F9179;
+    --sage-deep:#4F6E59;
+    --ochre:#C08B3E;
+    --brick:#A85B41;
+    --line:#C9C1A4;
+    --line-dark:#33443C;
+    --oat-text:#DDD6BF;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'Inter', sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  ::selection{ background:var(--sage); color:#fff; }
+
+  .app-shell{ display:none; min-height:100vh; }
+  .app-shell.unlocked{ display:flex; }
+
+  /* ---------- ACCESS GATE ---------- */
+  #gate{
+    position:fixed; inset:0; z-index:999;
+    background:radial-gradient(circle at 30% 20%, #17281F 0%, var(--bg-deep) 70%);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  #gate .gate-card{
+    background:var(--panel); border-radius:10px; padding:44px 44px 36px;
+    max-width:400px; width:100%; text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,0.4);
+  }
+  #gate .gate-mark{ font-family:'Fraunces', serif; font-weight:700; font-size:2.1rem; color:var(--ink); letter-spacing:1px; }
+  #gate .gate-sub{ font-family:'IBM Plex Mono', monospace; font-size:0.65rem; letter-spacing:2px; color:var(--sage-deep); text-transform:uppercase; margin:6px 0 26px; }
+  #gate input{
+    width:100%; text-align:center; letter-spacing:2px; text-transform:uppercase;
+    background:var(--panel-input); border:1px solid var(--line); border-radius:5px;
+    padding:12px; font-family:'IBM Plex Mono', monospace; font-size:0.95rem; color:var(--ink);
+  }
+  #gate input:focus{ outline:2px solid var(--sage); }
+  #gate button{
+    width:100%; margin-top:14px; background:var(--sage); color:#fff; border:none;
+    border-radius:5px; padding:12px; font-family:'IBM Plex Mono', monospace; font-size:0.75rem;
+    letter-spacing:1.5px; text-transform:uppercase; cursor:pointer;
+  }
+  #gate button:hover{ background:var(--sage-deep); }
+  #gate .gate-error{ color:var(--brick); font-family:'IBM Plex Mono', monospace; font-size:0.72rem; margin-top:12px; min-height:16px; }
+  #gate .gate-hint{ color:var(--ink-soft); font-size:0.78rem; margin-top:18px; line-height:1.5; }
+  .shake{ animation:shakeX .35s; }
+  @keyframes shakeX{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-8px);} 75%{transform:translateX(8px);} }
+
+  h1,h2,h3{ font-family:'Fraunces', serif; font-weight:600; color:var(--ink); }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar{
+    width:250px;
+    min-width:250px;
+    background:var(--bg-deep);
+    color:var(--oat-text);
+    display:flex;
+    flex-direction:column;
+    padding:28px 0 20px;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{ padding:0 24px 20px; border-bottom:1px solid var(--line-dark); margin-bottom:10px;}
+  .brand .mark{ font-family:'Fraunces', serif; font-size:1.7rem; font-weight:700; color:var(--panel); letter-spacing:1px;}
+  .brand .sub{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:2px; color:var(--sage); margin-top:4px; text-transform:uppercase;}
+
+  nav{ flex:1; padding-top:8px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:12px 24px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; letter-spacing:1.2px;
+    color:#B8B2A0; text-transform:uppercase;
+    border-left:3px solid transparent;
+    transition:all .15s ease;
+  }
+  .nav-item .code{ color:var(--ochre); font-weight:600; width:14px; display:inline-block;}
+  .nav-item:hover{ background:rgba(255,255,255,0.03); color:var(--oat-text); }
+  .nav-item.active{ border-left:3px solid var(--sage); background:rgba(111,145,121,0.12); color:#fff; }
+
+  .session-controls{ padding:16px 24px 0; border-top:1px solid var(--line-dark); margin-top:8px;}
+  .session-controls .label{ font-family:'IBM Plex Mono',monospace; font-size:0.6rem; letter-spacing:2px; color:#8A8574; margin-bottom:10px; text-transform:uppercase;}
+  .btn-sm{
+    display:block; width:100%; text-align:left;
+    background:none; border:none; color:#C7C0AC;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:1px;
+    padding:8px 0; cursor:pointer; text-transform:uppercase;
+    border-bottom:1px dotted var(--line-dark);
+  }
+  .btn-sm:hover{ color:var(--sage); }
+  .file-hidden{ display:none; }
+  .save-status{ font-family:'IBM Plex Mono',monospace; font-size:0.6rem; color:var(--sage); margin-top:10px; min-height:14px;}
+
+  /* ---------- MAIN ---------- */
+  main{ flex:1; padding:48px 56px 90px; max-width:1000px; }
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:0.72rem; letter-spacing:3px; color:var(--sage); text-transform:uppercase; margin-bottom:10px; }
+  .view h1{ font-size:2.6rem; color:var(--panel); margin-bottom:6px; }
+  .view > .lede{ color:#AEB8B0; font-size:1.02rem; max-width:640px; margin-bottom:36px; line-height:1.6; }
+
+  /* Stage banner (matches print workbook identity) */
+  .stage-banner{
+    display:flex; align-items:stretch; margin-bottom:32px;
+    border-radius:6px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,0.25);
+  }
+  .stage-banner .letter{
+    background:var(--bg-deep); color:var(--ochre);
+    font-family:'Fraunces', serif; font-size:3rem; font-weight:700;
+    width:100px; display:flex; align-items:center; justify-content:center;
+  }
+  .stage-banner .info{ background:var(--panel-soft); padding:20px 26px; flex:1; }
+  .stage-banner .info h2{ font-size:1.5rem; margin-bottom:2px; }
+  .stage-banner .info p{ font-style:italic; color:var(--sage-deep); font-size:0.95rem; }
+
+  .card{
+    background:var(--panel);
+    border-radius:8px;
+    padding:28px 30px;
+    margin-bottom:24px;
+    box-shadow:0 4px 18px rgba(0,0,0,0.18);
+  }
+  .card h3{ font-size:1.15rem; margin-bottom:14px; }
+  .card p.help{ color:var(--ink-soft); font-size:0.92rem; margin-bottom:16px; line-height:1.55; }
+
+  label{ display:block; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:1.3px; text-transform:uppercase; color:var(--sage-deep); margin:16px 0 6px; }
+  label:first-of-type{ margin-top:0; }
+  input[type=text], input[type=date], textarea, select{
+    width:100%; background:var(--panel-input); border:1px solid var(--line);
+    border-radius:4px; padding:10px 12px; font-family:'Inter', sans-serif; font-size:0.95rem;
+    color:var(--ink); resize:vertical;
+  }
+  textarea{ min-height:64px; line-height:1.5;}
+  input:focus, textarea:focus, select:focus{ outline:2px solid var(--sage); outline-offset:1px; }
+
+  /* Tables */
+  table{ width:100%; border-collapse:collapse; margin-top:6px; }
+  thead th{
+    background:var(--bg-deep); color:#fff; font-family:'IBM Plex Mono', monospace;
+    font-size:0.65rem; letter-spacing:1px; text-transform:uppercase; text-align:left;
+    padding:10px 12px;
+  }
+  tbody td{ padding:8px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:nth-child(even){ background:var(--panel-soft); }
+  td input, td select{ background:var(--panel-input); }
+  .row-actions{ text-align:center; width:34px; }
+  .icon-btn{
+    background:none; border:1px solid var(--line); border-radius:4px; color:var(--brick);
+    cursor:pointer; width:26px; height:26px; font-size:0.85rem; line-height:1;
+  }
+  .icon-btn:hover{ background:var(--brick); color:#fff; }
+  .add-row-btn{
+    margin-top:12px; background:var(--sage); color:#fff; border:none; border-radius:4px;
+    padding:9px 16px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; letter-spacing:1px;
+    text-transform:uppercase; cursor:pointer;
+  }
+  .add-row-btn:hover{ background:var(--sage-deep); }
+  .sort-btn{
+    margin-top:12px; margin-left:10px; background:none; color:var(--sage-deep); border:1px solid var(--sage-deep);
+    border-radius:4px; padding:8px 16px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
+    letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+  }
+  .sort-btn:hover{ background:var(--sage-deep); color:#fff; }
+  .score-pill{
+    display:inline-block; min-width:26px; text-align:center; padding:3px 8px; border-radius:20px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; font-weight:600; color:#fff;
+  }
+
+  /* ---------- DASHBOARD ---------- */
+  .meter-panel{
+    background:var(--bg-deep); border-radius:10px; padding:30px 34px; margin-bottom:30px;
+    display:flex; gap:40px; align-items:center; flex-wrap:wrap;
+  }
+  .meter-readout{ flex:1; min-width:220px; }
+  .meter-readout .status-line{ font-family:'IBM Plex Mono', monospace; color:var(--sage); font-size:0.72rem; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px;}
+  .meter-readout h2{ color:#fff; font-size:1.7rem; margin-bottom:8px; }
+  .meter-readout p{ color:#9FAA A2; color:#9FB0A5; font-size:0.9rem; line-height:1.5; max-width:420px;}
+
+  .meters{ display:flex; gap:18px; }
+  .meter{ text-align:center; }
+  .meter .track{
+    width:34px; height:110px; background:rgba(255,255,255,0.06); border:1px solid var(--line-dark);
+    border-radius:4px; position:relative; overflow:hidden; display:flex; align-items:flex-end;
+  }
+  .meter .fill{ width:100%; background:linear-gradient(180deg, var(--ochre), var(--sage)); transition:height .35s ease; }
+  .meter .pct{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color:#9FB0A5; margin-top:6px; }
+  .meter .code{ font-family:'Fraunces', serif; font-weight:700; color:var(--panel); margin-top:2px; font-size:1rem;}
+
+  .quick-capture textarea{ min-height:70px; }
+
+  .stage-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:8px; }
+  .stage-card{
+    background:var(--panel); border-radius:8px; padding:20px 22px; cursor:pointer;
+    border-left:5px solid var(--sage); transition:transform .12s ease;
+  }
+  .stage-card:hover{ transform:translateY(-2px); }
+  .stage-card .code{ font-family:'IBM Plex Mono', monospace; color:var(--sage-deep); font-size:0.7rem; letter-spacing:2px;}
+  .stage-card h3{ margin:4px 0 6px; font-size:1.15rem; }
+  .stage-card p{ color:var(--ink-soft); font-size:0.85rem; }
+
+  /* No Library */
+  .script-card{ background:var(--panel-soft); border-radius:6px; padding:16px 18px; margin-bottom:14px; border:1px solid var(--line); }
+  .script-card h4{ font-family:'IBM Plex Mono', monospace; font-size:0.78rem; letter-spacing:1px; text-transform:uppercase; color:var(--sage-deep); margin-bottom:8px;}
+  .script-card textarea{ font-family:'Fraunces', serif; font-style:italic; font-size:0.92rem; min-height:70px; }
+  .copy-btn{
+    margin-top:8px; background:none; border:1px solid var(--sage-deep); color:var(--sage-deep);
+    padding:6px 14px; border-radius:4px; font-family:'IBM Plex Mono', monospace; font-size:0.66rem;
+    letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+  }
+  .copy-btn:hover{ background:var(--sage-deep); color:#fff; }
+  .script-actions{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .script-actions .copy-btn{ margin-top:0; }
+  .email-btn{ border-color:var(--ochre) !important; color:var(--ochre) !important; }
+  .email-btn:hover{ background:var(--ochre) !important; color:#fff !important; }
+
+  /* Worked examples */
+  .example-box{
+    background:#EFE9DA; border:1px dashed var(--sage-deep); border-radius:8px;
+    padding:18px 20px; margin-bottom:22px;
+  }
+  .example-box .ex-tag{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:1.5px;
+    text-transform:uppercase; color:#fff; background:var(--sage-deep); padding:3px 10px; border-radius:20px; margin-bottom:10px;
+  }
+  .example-box h4{ font-family:'Fraunces', serif; font-size:0.98rem; color:var(--ink); margin-bottom:10px; }
+  .example-box .ex-row{ font-size:0.85rem; color:#3E4A44; margin-bottom:7px; line-height:1.5; }
+  .example-box .ex-row b{ color:var(--sage-deep); }
+  .example-box table{ margin-top:4px; margin-bottom:6px; }
+  .example-box table th{ background:#3E4A44; font-size:0.6rem; }
+  .example-box table td{ font-size:0.82rem; padding:6px 8px; border-color:#D9D2BE; }
+  .example-box table tr:nth-child(even){ background:#E5DFCE; }
+
+  /* Checklist */
+  .check-item{ display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .check-item input{ width:auto; margin-top:3px; accent-color:var(--sage-deep); }
+  .check-item label{ margin:0; text-transform:none; letter-spacing:0; font-family:'Inter',sans-serif; font-size:0.98rem; color:var(--ink); font-weight:500; }
+
+  /* Reference card */
+  .ref-table th, .ref-table td{ font-size:0.92rem; }
+  .ref-note{ text-align:center; font-family:'Fraunces', serif; font-style:italic; font-size:1.2rem; color:var(--sage-deep); margin-top:26px; }
+
+  .print-btn{
+    background:var(--ochre); color:#fff; border:none; border-radius:4px; padding:10px 18px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; letter-spacing:1px; text-transform:uppercase;
+    cursor:pointer; margin-top:10px;
+  }
+  .print-btn:hover{ background:#a97531; }
+
+  /* Options / Feedback */
+  .form-wrap{ width:100%; max-width:640px; margin:0 auto; border-radius:8px; overflow:hidden; background:var(--panel-input); border:1px solid var(--line); }
+  .form-wrap iframe{ width:100%; display:block; border:none; }
+  .callout-row{ text-align:center; margin-top:14px; font-size:0.85rem; color:var(--ink-soft); }
+  .callout-row span{ margin-right:6px; }
+  .text-link{ color:var(--sage-deep); font-weight:600; text-decoration:none; border-bottom:1px dotted var(--sage-deep); }
+  .text-link:hover{ color:var(--ochre); border-color:var(--ochre); }
+
+  footer.viewfoot{ margin-top:10px; }
+
+  /* ---------- MOBILE TOPBAR + DRAWER (hidden on desktop) ---------- */
+  .mobile-topbar{
+    display:none; position:fixed; top:0; left:0; right:0; height:56px; z-index:120;
+    background:var(--bg-deep); align-items:center; justify-content:space-between;
+    padding:0 18px; border-bottom:1px solid var(--line-dark);
+  }
+  .mobile-topbar .mt-mark{ font-family:'Fraunces', serif; font-weight:700; color:var(--panel); font-size:1.15rem; letter-spacing:1px; }
+  .hamburger{ background:none; border:1px solid var(--line-dark); border-radius:6px; color:var(--panel); font-size:1.3rem; cursor:pointer; line-height:1; padding:6px 12px; }
+  .sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:150; }
+  .sidebar-backdrop.show{ display:block; }
+  .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:4px; }
+
+  @media (max-width:900px){
+    .mobile-topbar{ display:flex; }
+    .sidebar{
+      position:fixed; top:0; left:0; height:100vh; width:80%; max-width:300px; min-width:0;
+      transform:translateX(-100%); transition:transform .28s ease; z-index:200; box-shadow:12px 0 40px rgba(0,0,0,0.45);
+    }
+    .sidebar.mobile-open{ transform:translateX(0); }
+    main{ padding:80px 18px 70px; max-width:100%; }
+    .view h1{ font-size:1.9rem; }
+    .stage-banner .letter{ width:72px; font-size:2.1rem; }
+    .stage-banner .info{ padding:16px 18px; }
+    .stage-grid{ grid-template-columns:1fr; }
+    .meter-panel{ flex-direction:column; align-items:flex-start; gap:22px; padding:24px 22px; }
+    .meters{ align-self:stretch; justify-content:space-between; }
+    #gate .gate-card{ padding:32px 24px 26px; max-width:92vw; }
+    .card{ padding:20px 18px; }
+    table{ min-width:540px; }
+    .form-wrap iframe{ height:1450px; }
+  }
+  @media (max-width:420px){
+    .view h1{ font-size:1.6rem; }
+    .meters{ gap:10px; }
+    .meter .track{ width:26px; height:90px; }
+  }
+
+  @media print{
+    .sidebar{ display:none; }
+    body{ background:#fff; }
+    main{ padding:10px; max-width:100%; }
+    .view{ display:none !important; }
+    .view.print-active{ display:block !important; }
+    .card, .stage-banner .info, .meter-panel{ box-shadow:none; }
+    .meter-panel{ background:#fff; border:1px solid #ccc; }
+    .meter-readout h2, .meter-readout .status-line, .meter-readout p{ color:#333 !important; }
+    .add-row-btn, .sort-btn, .icon-btn, .copy-btn, .print-btn{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-mark">C.A.O.S.</div>
+    <div class="gate-sub">Calm Productivity System · Access</div>
+    <input type="text" id="gate-input" placeholder="ENTER ACCESS CODE" autocomplete="off">
+    <button onclick="tryUnlock()">Unlock Console</button>
+    <div class="gate-error" id="gate-error"></div>
+    <div class="gate-hint">Your access code is in your purchase email / Access Card.</div>
+  </div>
+</div>
+
+<div class="app-shell" id="app-shell">
+<div class="mobile-topbar">
+  <div class="mt-mark">C.A.O.S.</div>
+  <button class="hamburger" id="btn-hamburger" aria-label="Open menu">☰</button>
+</div>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+<div class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="mark">C.A.O.S.</div>
+    <div class="sub">Calm Productivity System · v1.0</div>
+  </div>
+  <nav>
+    <div class="nav-item active" data-view="dashboard"><span class="code">•</span> Dashboard</div>
+    <div class="nav-item" data-view="clarify"><span class="code">C</span> Clarify</div>
+    <div class="nav-item" data-view="assess"><span class="code">A</span> Assess</div>
+    <div class="nav-item" data-view="order"><span class="code">O</span> Order</div>
+    <div class="nav-item" data-view="simplify"><span class="code">S</span> Simplify</div>
+    <div class="nav-item" data-view="weekly"><span class="code">↻</span> Weekly Checklist</div>
+    <div class="nav-item" data-view="reference"><span class="code">?</span> Product Help</div>
+    <div class="nav-item" data-view="options"><span class="code">⚙</span> Feedback</div>
+  </nav>
+  <div class="session-controls">
+    <div class="label">Session</div>
+    <button class="btn-sm" id="btn-new">＋ New Session</button>
+    <button class="btn-sm" id="btn-save">⬇ Save Session</button>
+    <button class="btn-sm" id="btn-load">⬆ Load Session</button>
+    <input type="file" id="file-load" class="file-hidden" accept="application/json">
+    <div class="save-status" id="save-status"></div>
+    <div class="save-status" id="autosave-status" style="color:var(--sage);"></div>
+  </div>
+</div>
+
+<main>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="view active" id="view-dashboard">
+    <div class="eyebrow">Calm Productivity System</div>
+    <h1>C.A.O.S.</h1>
+    <p class="lede">A simple system for when you have too much on your plate. Four easy steps. Work through your biggest decision one step at a time — the console keeps track as you go.</p>
+
+    <div class="meter-panel">
+      <div class="meter-readout">
+        <div class="status-line" id="status-line">System idle · no decision loaded</div>
+        <h2>Clarity Meter</h2>
+        <p>This fills up as you finish each step. It shows how much of this decision is sorted out, and how much is still just noise in your head.</p>
+      </div>
+      <div class="meters">
+        <div class="meter"><div class="track"><div class="fill" id="fill-clarify" style="height:0%"></div></div><div class="code">C</div><div class="pct" id="pct-clarify">0%</div></div>
+        <div class="meter"><div class="track"><div class="fill" id="fill-assess" style="height:0%"></div></div><div class="code">A</div><div class="pct" id="pct-assess">0%</div></div>
+        <div class="meter"><div class="track"><div class="fill" id="fill-order" style="height:0%"></div></div><div class="code">O</div><div class="pct" id="pct-order">0%</div></div>
+        <div class="meter"><div class="track"><div class="fill" id="fill-simplify" style="height:0%"></div></div><div class="code">S</div><div class="pct" id="pct-simplify">0%</div></div>
+      </div>
+    </div>
+
+    <div class="card quick-capture">
+      <h3>Today's Decision</h3>
+      <p class="help">Start here. Type the thing that's stressing you out right now, even if it's messy. You'll turn it into a clear decision on the next page.</p>
+      <label>What's circling in your head right now?</label>
+      <textarea class="track" data-stage="clarify" id="quick-capture"></textarea>
+    </div>
+
+    <h3 style="color:var(--panel); margin-bottom:14px;">The Four Stages</h3>
+    <div class="stage-grid">
+      <div class="stage-card" data-goto="clarify"><div class="code">STAGE C</div><h3>Clarify</h3><p>Name the real decision and the real deadline.</p></div>
+      <div class="stage-card" data-goto="assess"><div class="code">STAGE A</div><h3>Assess</h3><p>Lay out options and true costs without spiraling.</p></div>
+      <div class="stage-card" data-goto="order"><div class="code">STAGE O</div><h3>Order</h3><p>Sequence what matters this week.</p></div>
+      <div class="stage-card" data-goto="simplify"><div class="code">STAGE S</div><h3>Simplify</h3><p>Cut, delegate, or automate the rest.</p></div>
+    </div>
+
+    <div class="card" style="margin-top:24px;">
+      <h3>Stay in the Loop</h3>
+      <p class="help">This console is part of the Calm Productivity system. If it's useful, the newsletter goes deeper on decision-making, focus, and running a calmer operation — no spam, unsubscribe any time.</p>
+      <iframe src="https://anshulkumar.substack.com/embed" width="100%" height="150" style="border:1px solid var(--line); border-radius:6px; background:var(--panel-input);" frameborder="0" scrolling="no"></iframe>
+      <a class="text-link" style="display:inline-block; margin-top:12px;" href="https://anshulkumar.substack.com/?utm_source=substack&utm_campaign=publication_embed&utm_medium=web" target="_blank" rel="noopener">Read the Calm Productivity newsletter →</a>
+    </div>
+  </section>
+
+  <!-- ============ CLARIFY ============ -->
+  <section class="view" id="view-clarify">
+    <div class="stage-banner"><div class="letter">C</div><div class="info"><h2>Clarify</h2><p>Name the real decision and the real deadline</p></div></div>
+    <div class="card">
+      <p class="help">Most stress doesn't come from hard decisions — it comes from unclear ones. This page turns a vague worry into one clear question you can actually answer.</p>
+
+      <div class="example-box">
+        <span class="ex-tag">Example</span>
+        <h4>Sarah is deciding when to launch her Gumroad product</h4>
+        <div class="ex-row"><b>Decision I'm avoiding:</b> "I keep going back and forth on whether to launch my Gumroad product now, or wait and add more features first."</div>
+        <div class="ex-row"><b>Rewritten as a clear question:</b> "Should I launch my Gumroad product this Friday with what I have now, or wait 3 more weeks to add extra templates?"</div>
+        <div class="ex-row"><b>Real deadline:</b> "Friday — I already told my email list a launch is coming."</div>
+        <div class="ex-row"><b>If I decide nothing:</b> "I keep quietly delaying, and my email list loses interest."</div>
+        <div class="ex-row"><b>Who else is affected:</b> "My early subscribers who are expecting it."</div>
+        <div class="ex-row"><b>Reversible or one-way:</b> "Reversible — I can always add more later as a free update."</div>
+        <div class="ex-row"><b>Whose decision is this:</b> "Mine — nobody else needs to approve this."</div>
+      </div>
+
+      <label>The decision I'm avoiding or circling right now</label>
+      <textarea class="track" data-stage="clarify" id="c-decision"></textarea>
+      <label>Rewritten as a specific, answerable question</label>
+      <textarea class="track" data-stage="clarify" id="c-question"></textarea>
+      <label>Real deadline (not the imagined one)</label>
+      <input type="text" class="track" data-stage="clarify" id="c-deadline" placeholder="e.g. Friday the 24th, when the invoice is due">
+      <label>What happens if I decide nothing by that date?</label>
+      <textarea class="track" data-stage="clarify" id="c-consequence"></textarea>
+      <label>Who else is actually affected by this?</label>
+      <input type="text" class="track" data-stage="clarify" id="c-affected">
+      <label>Is this reversible, or one-way?</label>
+      <select class="track" data-stage="clarify" id="c-reversible">
+        <option value="">— select —</option>
+        <option>Reversible — I can correct course later</option>
+        <option>One-way — this is hard to undo</option>
+      </select>
+      <label>Am I deciding this, or someone else's version of it?</label>
+      <input type="text" class="track" data-stage="clarify" id="c-ownership" placeholder="e.g. this is actually my co-founder's worry, not mine">
+    </div>
+    <p style="color:#9FB0A5; font-style:italic;">A decision that isn't clearly written down always feels bigger than it really is. Once you name it clearly, most of the stress goes away — even before you've decided anything.</p>
+  </section>
+
+  <!-- ============ ASSESS ============ -->
+  <section class="view" id="view-assess">
+    <div class="stage-banner"><div class="letter">A</div><div class="info"><h2>Assess</h2><p>Lay out options and true costs without spiraling</p></div></div>
+    <div class="card">
+      <h3>Decision Matrix</h3>
+      <p class="help">Stop comparing your options in your head over and over. Write them down once, side by side. Add one row for each option.</p>
+
+      <div class="example-box">
+        <span class="ex-tag">Example</span>
+        <h4>Sarah's Decision Matrix — launch now vs. wait</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Option</th><th>Real Cost</th><th>Cost of Delaying</th><th>Reversible?</th></tr></thead>
+          <tbody>
+            <tr><td>Launch now, as-is</td><td>Less polished, maybe a few refund requests</td><td>Lose momentum, list goes cold</td><td>Yes</td></tr>
+            <tr><td>Wait 3 weeks, add templates</td><td>3 more weeks of unpaid work</td><td>List cools off, motivation drops</td><td>Yes</td></tr>
+          </tbody>
+        </table></div>
+        <div class="ex-row"><b>Honest read:</b> "Waiting doesn't actually make this safer — it just delays it. I'm launching Friday and adding templates later as a free update."</div>
+      </div>
+
+      <div class="table-wrap"><table id="table-assess">
+        <thead><tr><th style="width:20%">Option</th><th style="width:20%">Real Cost</th><th style="width:32%">Cost of Delaying This Task</th><th style="width:16%">Reversible?</th><th class="row-actions"></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <button class="add-row-btn" onclick="addAssessRow()">＋ Add Option</button>
+      <label style="margin-top:24px;">Based on the matrix, my honest read on the right option is</label>
+      <textarea class="track" data-stage="assess" id="a-recommendation"></textarea>
+    </div>
+    <p style="color:#9FB0A5; font-style:italic;">If you can undo it later, decide fast and fix it if you need to. If you can't undo it, slow down — but only for this one, not for every decision.</p>
+  </section>
+
+  <!-- ============ ORDER ============ -->
+  <section class="view" id="view-order">
+    <div class="stage-banner"><div class="letter">O</div><div class="info"><h2>Order</h2><p>Sequence what matters this week</p></div></div>
+    <div class="card">
+      <h3>This Week's Sequence</h3>
+      <p class="help">Give each task an Impact rating and an Urgency rating. Then click Sort to see what really matters most — not just what landed in your inbox first.</p>
+
+      <div class="example-box">
+        <span class="ex-tag">Example</span>
+        <h4>Sarah's list for launch week</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Task</th><th>Impact</th><th>Urgency</th><th>Score</th></tr></thead>
+          <tbody>
+            <tr><td>Finish and launch the product</td><td>High</td><td>High</td><td>6</td></tr>
+            <tr><td>Write the launch email</td><td>High</td><td>High</td><td>6</td></tr>
+            <tr><td>Design the cover image</td><td>Medium</td><td>High</td><td>5</td></tr>
+            <tr><td>Add extra bonus templates</td><td>Low</td><td>Low</td><td>2</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="table-wrap"><table id="table-order">
+        <thead><tr><th style="width:44%">Decision / Task</th><th style="width:18%">Impact</th><th style="width:18%">Urgency</th><th style="width:12%">Score</th><th class="row-actions"></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <button class="add-row-btn" onclick="addOrderRow()">＋ Add Item</button>
+      <button class="sort-btn" onclick="sortOrderRows()">⇅ Sort by Sequence</button>
+    </div>
+    <p style="color:#9FB0A5; font-style:italic;">Big impact and urgent? Do it first. Big impact but not urgent? Schedule it — don't forget it. Small impact? Send it to Simplify.</p>
+  </section>
+
+  <!-- ============ SIMPLIFY ============ -->
+  <section class="view" id="view-simplify">
+    <div class="stage-banner"><div class="letter">S</div><div class="info"><h2>Simplify</h2><p>Cut, delegate, or automate the rest</p></div></div>
+    <div class="card">
+      <h3>The Filter</h3>
+      <p class="help">For everything left over, ask one simple question: does this need to be done by me, by someone else, or not at all?</p>
+
+      <div class="example-box">
+        <span class="ex-tag">Example</span>
+        <h4>Sarah's Filter</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Task</th><th>Decision</th></tr></thead>
+          <tbody>
+            <tr><td>Answering every DM personally</td><td>Automate — use saved replies</td></tr>
+            <tr><td>Designing the cover graphic</td><td>Delegate — hire someone on Fiverr</td></tr>
+            <tr><td>Extra bonus templates</td><td>Kill — ship without them, add later</td></tr>
+            <tr><td>Writing the launch email</td><td>Keep — only I can write this in my voice</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="table-wrap"><table id="table-simplify">
+        <thead><tr><th style="width:56%">Task / Recurring Decision</th><th style="width:32%">Decision</th><th class="row-actions"></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <button class="add-row-btn" onclick="addSimplifyRow()">＋ Add Task</button>
+    </div>
+
+    <div class="card">
+      <h3>The No Library</h3>
+      <p class="help">Copy-paste messages you can send right away. Just fill in the [ ] blanks, then copy the message or open it straight in your email.</p>
+
+      <div class="script-card">
+        <h4>Declining a request</h4>
+        <textarea class="track" data-stage="simplify" id="script-decline">Thanks for thinking of me for this — I've had to get intentional about where my time goes right now, and I don't think I can give [request] the attention it deserves. [Alternative / who else could help], if that's useful.</textarea>
+        <div class="script-actions"><button class="copy-btn" onclick="copyScript('script-decline')">Copy</button><button class="copy-btn email-btn" onclick="openInEmail('script-decline')">✉ Open in Email</button></div>
+      </div>
+      <div class="script-card">
+        <h4>Delegating without guilt</h4>
+        <textarea class="track" data-stage="simplify" id="script-delegate">I've been holding onto [task] longer than makes sense — you're the better owner for this. Here's the outcome I need by [date]: [outcome]. Full context is in [doc/link]. Come to me only if [specific blocker].</textarea>
+        <div class="script-actions"><button class="copy-btn" onclick="copyScript('script-delegate')">Copy</button><button class="copy-btn email-btn" onclick="openInEmail('script-delegate')">✉ Open in Email</button></div>
+      </div>
+      <div class="script-card">
+        <h4>Deferring a decision</h4>
+        <textarea class="track" data-stage="simplify" id="script-defer">I'm not deciding this today — not because it doesn't matter, but because deciding it well needs [what's missing: data / time / input]. I'll have an answer by [date].</textarea>
+        <div class="script-actions"><button class="copy-btn" onclick="copyScript('script-defer')">Copy</button><button class="copy-btn email-btn" onclick="openInEmail('script-defer')">✉ Open in Email</button></div>
+      </div>
+      <div class="script-card">
+        <h4>Protecting focus time</h4>
+        <textarea class="track" data-stage="simplify" id="script-focus">I'm heads-down on [priority] through [date/time] — I'll be slower than usual to respond. If it's genuinely urgent, [specific channel] will reach me.</textarea>
+        <div class="script-actions"><button class="copy-btn" onclick="copyScript('script-focus')">Copy</button><button class="copy-btn email-btn" onclick="openInEmail('script-focus')">✉ Open in Email</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WEEKLY RESET ============ -->
+  <section class="view" id="view-weekly">
+    <div class="eyebrow">Every Week</div>
+    <h1 style="color:var(--panel);">Your Weekly Checklist</h1>
+    <p class="lede">Just 15 minutes, once a week. This is what keeps the system actually working for you, instead of being something you use once and forget.</p>
+    <div class="card">
+      <div class="check-item"><input type="checkbox" id="w1"><label for="w1">CLARIFY — What's the one decision I've been avoiding this week?</label></div>
+      <div class="check-item"><input type="checkbox" id="w2"><label for="w2">ASSESS — Does it need a fresh Decision Matrix, or do I already have enough?</label></div>
+      <div class="check-item"><input type="checkbox" id="w3"><label for="w3">ORDER — Re-rank this week's list. What moved up? What can wait?</label></div>
+      <div class="check-item"><input type="checkbox" id="w4"><label for="w4">SIMPLIFY — What's one thing I can delegate, automate, or kill this week?</label></div>
+      <div class="check-item"><input type="checkbox" id="w5"><label for="w5">Send at least one "No Library" message if something needs to be declined or handed off.</label></div>
+    </div>
+    <p style="color:#9FB0A5; font-style:italic;">This isn't a to-do list or a journal. It's a quick check-in that stops Monday's chaos from quietly turning into Friday's burnout.</p>
+  </section>
+
+  <!-- ============ PRODUCT HELP ============ -->
+  <section class="view" id="view-reference">
+    <div class="eyebrow">Keep This Visible</div>
+    <h1 style="color:var(--panel);">Product Help</h1>
+    <p class="lede">When something starts spinning in your head, ask yourself these four questions, in order.</p>
+    <div class="card">
+      <div class="table-wrap"><table class="ref-table">
+        <thead><tr><th style="width:20%">Stage</th><th>Ask Yourself</th></tr></thead>
+        <tbody>
+          <tr><td><strong>C — Clarify</strong></td><td>What decision, exactly, and by when?</td></tr>
+          <tr><td><strong>A — Assess</strong></td><td>What are my real options, and what do they actually cost?</td></tr>
+          <tr><td><strong>O — Order</strong></td><td>Where does this rank against everything else this week?</td></tr>
+          <tr><td><strong>S — Simplify</strong></td><td>Can this be cut, delegated, or automated instead?</td></tr>
+        </tbody>
+      </table></div>
+      <p class="ref-note">Less noise. Better decisions. Calm execution.</p>
+      <button class="print-btn" onclick="printView('reference')">🖨 Print This Page</button>
+    </div>
+  </section>
+
+  <!-- ============ FEEDBACK ============ -->
+  <section class="view" id="view-options">
+    <div class="eyebrow">Help Shape What's Next</div>
+    <h1 style="color:var(--panel);">Feedback</h1>
+    <p class="lede">Two minutes of your time helps make this better for everyone who uses it.</p>
+
+    <div class="card">
+      <h3>Give Feedback</h3>
+      <p class="help">This tool gets better from real use, not guesswork. If something confused you, felt missing, or genuinely helped — tell us. It takes about two minutes, nobody needs to sign in, and it directly shapes what gets improved next.</p>
+      <div class="form-wrap">
+        <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdSFAsb1eyl4aElOyfzfroSLRhMuO6bhT55Ylz31z0lFBplgg/viewform?embedded=true" width="640" height="1410" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
+      </div>
+      <div class="callout-row">
+        <span>Having trouble seeing the form?</span>
+        <a class="text-link" href="https://forms.gle/R1zJvsVCkzMhBAUy6" target="_blank" rel="noopener">Open it in a new tab →</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+  // ---------- ACCESS GATE ----------
+  // Change ACCESS_CODE to whatever you want buyers to enter.
+  const ACCESS_CODE = "CAOS2026";
+
+  function tryUnlock(){
+    const val = document.getElementById('gate-input').value.trim().toUpperCase();
+    if(val === ACCESS_CODE.toUpperCase()){
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('app-shell').classList.add('unlocked');
+    }else{
+      const err = document.getElementById('gate-error');
+      err.textContent = "That code didn't match. Check your Access Card and try again.";
+      const card = document.querySelector('.gate-card');
+      card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    }
+  }
+  document.getElementById('gate-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryUnlock(); });
+
+  // ---------- NAV ----------
+  const navItems = document.querySelectorAll('.nav-item');
+  const views = document.querySelectorAll('.view');
+  function goTo(name){
+    navItems.forEach(n=>n.classList.toggle('active', n.dataset.view===name));
+    views.forEach(v=>v.classList.toggle('active', v.id==='view-'+name));
+    window.scrollTo(0,0);
+    closeMobileNav();
+  }
+  navItems.forEach(n=>n.addEventListener('click', ()=>goTo(n.dataset.view)));
+  document.querySelectorAll('.stage-card').forEach(c=>c.addEventListener('click', ()=>goTo(c.dataset.goto)));
+
+  // ---------- MOBILE NAV DRAWER ----------
+  const sidebarEl = document.getElementById('sidebar');
+  const backdropEl = document.getElementById('sidebar-backdrop');
+  function openMobileNav(){ sidebarEl.classList.add('mobile-open'); backdropEl.classList.add('show'); }
+  function closeMobileNav(){ sidebarEl.classList.remove('mobile-open'); backdropEl.classList.remove('show'); }
+  document.getElementById('btn-hamburger')?.addEventListener('click', openMobileNav);
+  backdropEl?.addEventListener('click', closeMobileNav);
+
+  function printView(name){
+    views.forEach(v=>v.classList.remove('print-active'));
+    document.getElementById('view-'+name).classList.add('print-active');
+    window.print();
+  }
+
+  // ---------- DYNAMIC TABLE HELPERS ----------
+  let rowCounters = { assess:0, order:0, simplify:0 };
+
+  function addAssessRow(prefill){
+    const id = 'assess-' + (rowCounters.assess++);
+    const tbody = document.querySelector('#table-assess tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="track" data-stage="assess" value="${prefill?.option||''}"></td>
+      <td><input type="text" class="track" data-stage="assess" value="${prefill?.cost||''}"></td>
+      <td><input type="text" class="track" data-stage="assess" value="${prefill?.wait||''}"></td>
+      <td><select class="track" data-stage="assess"><option value="">—</option><option ${prefill?.rev==='Yes'?'selected':''}>Yes</option><option ${prefill?.rev==='No'?'selected':''}>No</option></select></td>
+      <td class="row-actions"><button class="icon-btn" onclick="this.closest('tr').remove(); recalcMeters();">✕</button></td>`;
+    tbody.appendChild(tr);
+    bindTrackers();
+  }
+
+  function addSimplifyRow(prefill){
+    const tbody = document.querySelector('#table-simplify tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="track" data-stage="simplify" value="${prefill?.task||''}"></td>
+      <td><select class="track" data-stage="simplify">
+        <option value="">—</option>
+        <option ${prefill?.d==='Keep'?'selected':''}>Keep</option>
+        <option ${prefill?.d==='Delegate'?'selected':''}>Delegate</option>
+        <option ${prefill?.d==='Automate'?'selected':''}>Automate</option>
+        <option ${prefill?.d==='Kill'?'selected':''}>Kill</option>
+      </select></td>
+      <td class="row-actions"><button class="icon-btn" onclick="this.closest('tr').remove(); recalcMeters();">✕</button></td>`;
+    tbody.appendChild(tr);
+    bindTrackers();
+  }
+
+  const scoreMap = { '':0, 'High':3, 'Medium':2, 'Low':1 };
+  const scoreColor = { 6:'#4F6E59', 5:'#4F6E59', 4:'#6F9179', 3:'#C08B3E', 2:'#C08B3E', 1:'#A85B41', 0:'#8A8574' };
+
+  function addOrderRow(prefill){
+    const tbody = document.querySelector('#table-order tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="track" data-stage="order" value="${prefill?.task||''}"></td>
+      <td><select class="track order-impact" data-stage="order">
+        <option value="">—</option><option ${prefill?.impact==='High'?'selected':''}>High</option><option ${prefill?.impact==='Medium'?'selected':''}>Medium</option><option ${prefill?.impact==='Low'?'selected':''}>Low</option>
+      </select></td>
+      <td><select class="track order-urgency" data-stage="order">
+        <option value="">—</option><option ${prefill?.urgency==='High'?'selected':''}>High</option><option ${prefill?.urgency==='Medium'?'selected':''}>Medium</option><option ${prefill?.urgency==='Low'?'selected':''}>Low</option>
+      </select></td>
+      <td class="order-score-cell"><span class="score-pill" style="background:#8A8574">0</span></td>
+      <td class="row-actions"><button class="icon-btn" onclick="this.closest('tr').remove(); recalcMeters();">✕</button></td>`;
+    tbody.appendChild(tr);
+    tr.querySelectorAll('select').forEach(s=>s.addEventListener('change', ()=>updateOrderScore(tr)));
+    updateOrderScore(tr);
+    bindTrackers();
+  }
+
+  function updateOrderScore(tr){
+    const impact = tr.querySelector('.order-impact').value;
+    const urgency = tr.querySelector('.order-urgency').value;
+    const score = scoreMap[impact] + scoreMap[urgency];
+    const pill = tr.querySelector('.score-pill');
+    pill.textContent = score;
+    pill.style.background = scoreColor[score] || '#8A8574';
+    tr.dataset.score = score;
+  }
+
+  function sortOrderRows(){
+    const tbody = document.querySelector('#table-order tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a,b)=> (parseInt(b.dataset.score)||0) - (parseInt(a.dataset.score)||0));
+    rows.forEach(r=>tbody.appendChild(r));
+  }
+
+  function copyScript(id){
+    const el = document.getElementById(id);
+    navigator.clipboard?.writeText(el.value).then(()=>{
+      const btn = el.closest('.script-card').querySelector('.copy-btn');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied ✓';
+      setTimeout(()=>btn.textContent = orig, 1400);
+    }).catch(()=>{ el.select(); document.execCommand('copy'); });
+  }
+
+  function openInEmail(id){
+    const el = document.getElementById(id);
+    const body = encodeURIComponent(el.value);
+    const subject = encodeURIComponent('Quick note');
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }
+
+  // ---------- CLARITY METER ----------
+  function recalcMeters(){
+    const stages = ['clarify','assess','order','simplify'];
+    let totalFilled = 0, totalFields = 0;
+    stages.forEach(stage=>{
+      const els = document.querySelectorAll(`.track[data-stage="${stage}"]`);
+      let filled = 0;
+      els.forEach(el=>{ if((el.value||'').trim().length>0) filled++; });
+      const pct = els.length ? Math.round((filled/els.length)*100) : 0;
+      document.getElementById('fill-'+stage).style.height = pct+'%';
+      document.getElementById('pct-'+stage).textContent = pct+'%';
+      totalFilled += filled; totalFields += els.length;
+    });
+    const overall = totalFields ? Math.round((totalFilled/totalFields)*100) : 0;
+    const statusEl = document.getElementById('status-line');
+    if(overall===0) statusEl.textContent = 'System idle · no decision loaded';
+    else if(overall<40) statusEl.textContent = 'Signal weak · keep working the stages';
+    else if(overall<80) statusEl.textContent = 'Clarity building · ' + overall + '% resolved';
+    else statusEl.textContent = 'Clear · ' + overall + '% resolved — ready to act';
+    autosave();
+  }
+
+  // ---------- BROWSER AUTOSAVE (separate from Save Session file download) ----------
+  const AUTOSAVE_KEY = 'caos_autosave_v1';
+
+  function autosave(){
+    try{
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(collectState()));
+      const el = document.getElementById('autosave-status');
+      if(el) el.textContent = 'Autosaved in this browser ✓';
+    }catch(e){
+      // Storage unavailable (private browsing etc.) — fail silently, Save Session still works.
+    }
+  }
+
+  function bindTrackers(){
+    document.querySelectorAll('.track').forEach(el=>{
+      el.oninput = recalcMeters;
+      el.onchange = recalcMeters;
+    });
+  }
+
+  // ---------- SESSION SAVE / LOAD / NEW ----------
+  function collectState(){
+    const state = { fields:{}, tables:{ assess:[], order:[], simplify:[] }, checks:{} };
+    document.querySelectorAll('main [id]').forEach(el=>{
+      if(el.tagName==='INPUT' && el.type!=='checkbox' || el.tagName==='TEXTAREA' || el.tagName==='SELECT'){
+        if(el.closest('table')) return;
+        state.fields[el.id] = el.value;
+      }
+      if(el.tagName==='INPUT' && el.type==='checkbox'){
+        state.checks[el.id] = el.checked;
+      }
+    });
+    document.querySelectorAll('#table-assess tbody tr').forEach(tr=>{
+      const c = tr.querySelectorAll('input, select');
+      state.tables.assess.push({ option:c[0].value, cost:c[1].value, wait:c[2].value, rev:c[3].value });
+    });
+    document.querySelectorAll('#table-order tbody tr').forEach(tr=>{
+      const c = tr.querySelectorAll('input, select');
+      state.tables.order.push({ task:c[0].value, impact:c[1].value, urgency:c[2].value });
+    });
+    document.querySelectorAll('#table-simplify tbody tr').forEach(tr=>{
+      const c = tr.querySelectorAll('input, select');
+      state.tables.simplify.push({ task:c[0].value, d:c[1].value });
+    });
+    return state;
+  }
+
+  function applyState(state){
+    Object.entries(state.fields||{}).forEach(([id,val])=>{
+      const el = document.getElementById(id);
+      if(el) el.value = val;
+    });
+    Object.entries(state.checks||{}).forEach(([id,val])=>{
+      const el = document.getElementById(id);
+      if(el) el.checked = val;
+    });
+    document.querySelector('#table-assess tbody').innerHTML='';
+    (state.tables?.assess||[]).forEach(r=>addAssessRow(r));
+    document.querySelector('#table-order tbody').innerHTML='';
+    (state.tables?.order||[]).forEach(r=>addOrderRow(r));
+    document.querySelector('#table-simplify tbody').innerHTML='';
+    (state.tables?.simplify||[]).forEach(r=>addSimplifyRow(r));
+    bindTrackers();
+    recalcMeters();
+  }
+
+  document.getElementById('btn-save').addEventListener('click', ()=>{
+    const state = collectState();
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url; a.download = `CAOS-session-${stamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    const status = document.getElementById('save-status');
+    status.textContent = 'Saved ✓ ' + new Date().toLocaleTimeString();
+  });
+
+  document.getElementById('btn-load').addEventListener('click', ()=> document.getElementById('file-load').click());
+  document.getElementById('file-load').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const state = JSON.parse(reader.result);
+        applyState(state);
+        document.getElementById('save-status').textContent = 'Session loaded ✓';
+      }catch(err){
+        document.getElementById('save-status').textContent = 'Could not read that file.';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('btn-new').addEventListener('click', ()=>{
+    if(!confirm('Start a new session? Unsaved changes will be lost unless you save first.')) return;
+    document.querySelectorAll('main textarea, main input[type=text], main input[type=date]').forEach(el=>el.value='');
+    document.querySelectorAll('main select').forEach(el=>el.value='');
+    document.querySelectorAll('main input[type=checkbox]').forEach(el=>el.checked=false);
+    document.querySelector('#table-assess tbody').innerHTML='';
+    document.querySelector('#table-order tbody').innerHTML='';
+    document.querySelector('#table-simplify tbody').innerHTML='';
+    try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(e){}
+    recalcMeters();
+    document.getElementById('save-status').textContent = 'New session started';
+    document.getElementById('autosave-status').textContent = '';
+  });
+
+  // ---------- CHECKLIST AUTOSAVE ----------
+  document.querySelectorAll('.check-item input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', autosave);
+  });
+
+  // ---------- INIT ----------
+  let restoredFromBrowser = false;
+  try{
+    const saved = localStorage.getItem(AUTOSAVE_KEY);
+    if(saved){
+      applyState(JSON.parse(saved));
+      restoredFromBrowser = true;
+      document.getElementById('autosave-status').textContent = 'Restored your last session ✓';
+    }
+  }catch(e){ /* ignore */ }
+
+  if(!restoredFromBrowser){
+    addAssessRow(); addAssessRow();
+    addOrderRow(); addOrderRow(); addOrderRow();
+    addSimplifyRow(); addSimplifyRow();
+  }
+  bindTrackers();
+  recalcMeters();
+</script>
+</body>
+</html>
